@@ -6,11 +6,11 @@
     public static class GeneralConstants
     {
         // This variable should be set to false for devices, unlike the Raspberry Pi, that have GPU support
-        public const bool DisableLiveCameraFeed = true;
+        public const bool DisableLiveCameraFeed = false;
 
         // Oxford Face API Primary should be entered here
         // You can obtain a subscription key for Face API by following the instructions here: https://www.microsoft.com/cognitive-services/en-us/sign-up
-        public const string OxfordAPIKey = "OXFORD_KEY_HERE";
+        public const string OxfordAPIKey = "7d819c3df4074dff8a1edcb957503b19";
         
         // Name of the folder in which all Whitelist data is stored
         public const string WhiteListFolderName = "Facial Recognition Door Whitelist";

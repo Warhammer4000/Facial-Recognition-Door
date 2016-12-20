@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Windows.Devices.Gpio;
 using Windows.Storage;
 using Windows.UI.Core;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Imaging;
@@ -269,6 +270,18 @@ namespace FacialRecognitionDoor
                 }
                 else
                 {
+                    if (MailHelper.SendMail(image))
+                    {
+                        //Mail sent do nothing
+
+                    }
+                    else
+                    {
+                        var dialogue = new MessageDialog("Email Sending Failed Check Internet Connection");
+                        dialogue.ShowAsync();
+                    }
+
+
                     // Otherwise, inform user that they were not recognized by the system
                     await speech.Read(SpeechContants.VisitorNotRecognizedMessage);
                 }
@@ -399,6 +412,23 @@ namespace FacialRecognitionDoor
         {
             // Exit app
             Application.Current.Exit();
+        }
+
+   
+
+        private async void EmailConfirmation_Click_1(object sender, RoutedEventArgs e)
+        {
+            bool emailConfirmed = await MailHelper.ReadMail();
+            if (!emailConfirmed)
+            {
+                MessageDialog dialogue = new MessageDialog("Sorry I got no Confirmation yet");
+                await dialogue.ShowAsync();
+
+            }
+            else
+            {
+                UnlockDoor("Guest");
+            }
         }
     }
 }
