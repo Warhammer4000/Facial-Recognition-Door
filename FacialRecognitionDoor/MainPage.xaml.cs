@@ -39,7 +39,7 @@ namespace FacialRecognitionDoor
         private GpioHelper gpioHelper;
         private bool gpioAvailable;
         private bool doorbellJustPressed = false;
-
+        private StorageFile imageFile;
         // GUI Related Variables:
         private double visitorIDPhotoGridMaxWidth = 0;
 
@@ -236,12 +236,12 @@ namespace FacialRecognitionDoor
             if (webcam.IsInitialized() && initializedOxford)
             {
                 // Stores current frame from webcam feed in a temporary folder
-                StorageFile image = await webcam.CapturePhoto();
+                imageFile = await webcam.CapturePhoto();
 
                 try
                 {
                     // Oxford determines whether or not the visitor is on the Whitelist and returns true if so
-                    recognizedVisitors = await OxfordFaceAPIHelper.IsFaceInWhitelist(image);                    
+                    recognizedVisitors = await OxfordFaceAPIHelper.IsFaceInWhitelist(imageFile);                    
                 }
                 catch (FaceRecognitionException fe)
                 {
@@ -270,18 +270,6 @@ namespace FacialRecognitionDoor
                 }
                 else
                 {
-                    if (MailHelper.SendMail(image))
-                    {
-                        //Mail sent do nothing
-
-                    }
-                    else
-                    {
-                        var dialogue = new MessageDialog("Email Sending Failed Check Internet Connection");
-                        dialogue.ShowAsync();
-                    }
-
-
                     // Otherwise, inform user that they were not recognized by the system
                     await speech.Read(SpeechContants.VisitorNotRecognizedMessage);
                 }
@@ -421,6 +409,7 @@ namespace FacialRecognitionDoor
             bool emailConfirmed = await MailHelper.ReadMail();
             if (!emailConfirmed)
             {
+                speech.Read("Sorry I got no Confirmation yet");
                 MessageDialog dialogue = new MessageDialog("Sorry I got no Confirmation yet");
                 await dialogue.ShowAsync();
 
@@ -428,6 +417,24 @@ namespace FacialRecognitionDoor
             else
             {
                 UnlockDoor("Guest");
+            }
+        }
+
+        private async void RequestToken_Click(object sender, RoutedEventArgs e)
+        {
+            imageFile = await webcam.CapturePhoto();
+
+            if (MailHelper.SendMail(imageFile))
+            {
+                speech.Read("Wait While I contact my master");
+                MessageDialog dialogue = new MessageDialog("Wait While I contact my master");
+                await dialogue.ShowAsync();
+            }
+            else
+            {
+                speech.Read("Email Sending Failed Check Internet Connection");
+                MessageDialog dialogue = new MessageDialog("Email Sending Failed Check Internet Connection");
+                await dialogue.ShowAsync();
             }
         }
     }
