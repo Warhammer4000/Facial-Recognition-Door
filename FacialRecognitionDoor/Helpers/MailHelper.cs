@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Email;
-using System.Threading.Tasks;
+
 using System.IO;
 using Windows.Storage;
 using Windows.UI.Popups;
@@ -18,7 +18,7 @@ namespace FacialRecognitionDoor.Helpers
         static string hostPassword = "darks1d1ers";
         static string receipent = "tazimtazim2012@gmail.com";
 
-        public static bool SendMail(StorageFile image)
+        public static async Task<bool> SendMail(StorageFile image)
         {
 
 
@@ -38,7 +38,7 @@ namespace FacialRecognitionDoor.Helpers
 
 
 
-                client.SendMail(emailMessage);
+                await client.SendMail(emailMessage);
                 
                 return true;
             }

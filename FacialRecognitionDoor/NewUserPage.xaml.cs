@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using FacialRecognitionDoor.Helpers;
 using Windows.Storage;
+using Windows.UI.Core;
+using MatrixKeypad;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234238
 
@@ -17,25 +21,23 @@ namespace FacialRecognitionDoor
     public sealed partial class NewUserPage : Page
     {
         private WebcamHelper webcam;
-
         private StorageFile currentIdPhotoFile;
 
         public NewUserPage()
         {
             this.InitializeComponent();
 
+
+
             // If user has set the DisableLiveCameraFeed within Constants.cs to true, disable the feed:
-            if (GeneralConstants.DisableLiveCameraFeed)
-            {
-                WebcamFeed.Visibility = Visibility.Collapsed;
-                DisabledFeedGrid.Visibility = Visibility.Visible;
-            } 
-            else
             {
                 WebcamFeed.Visibility = Visibility.Visible;
                 DisabledFeedGrid.Visibility = Visibility.Collapsed;
-            }         
+            }
         }
+
+   
+      
 
         /// <summary>
         /// Triggered every time the page is navigated to.
@@ -52,6 +54,9 @@ namespace FacialRecognitionDoor
                 Debug.WriteLine("Error when navigating to NewUserPage: " + exception.Message);
             }
         }
+
+
+       
 
         /// <summary>
         /// Triggered when the webcam feed control is loaded. Sets up the live webcam feed.
@@ -72,6 +77,12 @@ namespace FacialRecognitionDoor
         /// </summary>
         private async void Capture_Click(object sender, RoutedEventArgs e)
         {
+           await Capture();
+        }
+
+
+        private async Task Capture()
+        {
             // Hide the capture photo button
             CaptureButton.Visibility = Visibility.Collapsed;
 
@@ -80,7 +91,7 @@ namespace FacialRecognitionDoor
             var photoStream = await currentIdPhotoFile.OpenAsync(FileAccessMode.ReadWrite);
             BitmapImage idPhotoImage = new BitmapImage();
             await idPhotoImage.SetSourceAsync(photoStream);
-            
+
 
             // Set the soruce of the photo control the new BitmapImage and make the photo control visible
             IdPhotoControl.Source = idPhotoImage;
@@ -91,7 +102,7 @@ namespace FacialRecognitionDoor
             DisabledFeedGrid.Visibility = Visibility.Collapsed;
 
             UserNameGrid.Visibility = Visibility.Visible;
-            
+
 
             // Dispose photo stream
             photoStream.Dispose();
@@ -132,15 +143,10 @@ namespace FacialRecognitionDoor
             UserNameBox.Text = "";
 
             // Open the webcam feed or disabled camera feed
-            if(GeneralConstants.DisableLiveCameraFeed)
-            {
-                DisabledFeedGrid.Visibility = Visibility.Visible;
-            }
-            else
             {
                 WebcamFeed.Visibility = Visibility.Visible;
             }
-            
+
             // Collapse the photo control:
             IdPhotoControl.Visibility = Visibility.Collapsed;
         }

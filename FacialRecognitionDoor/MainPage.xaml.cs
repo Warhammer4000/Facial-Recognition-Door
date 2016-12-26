@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+
 using Windows.Devices.Gpio;
 using Windows.Storage;
 using Windows.UI.Core;
@@ -13,19 +14,25 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using FacialRecognitionDoor.Helpers;
 using FacialRecognitionDoor.Objects;
+using MatrixKeypad;
 using Microsoft.ProjectOxford.Face;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
 namespace FacialRecognitionDoor
 {
-    public sealed partial class MainPage : Page
+    public sealed partial class MainPage
     {
         // Webcam Related Variables:
         private WebcamHelper webcam;
+        public  MatrixKeypadMonitor matrixPad ;
+
+        private bool[] secretPin;
+
+
 
         // Oxford Related Variables:
-        private bool initializedOxford = false;
+        private bool initializedOxford;
 
         // Whitelist Related Variables:
         private List<Visitor> whitelistedVisitors = new List<Visitor>();
@@ -48,7 +55,13 @@ namespace FacialRecognitionDoor
         /// </summary>
         public MainPage()
         {
+
             InitializeComponent();
+
+            secretPin=new bool[2];
+            secretPin[0] = false;
+            secretPin[1] = false;
+            
 
             // Causes this page to save its state when navigating to other pages
             NavigationCacheMode = NavigationCacheMode.Enabled;
@@ -59,31 +72,42 @@ namespace FacialRecognitionDoor
                 InitializeOxford();
             }
 
-            if(gpioAvailable == false)
+            if (gpioAvailable == false)
             {
                 // If GPIO is not available, attempt to initialize it
                 InitializeGpio();
             }
 
             // If user has set the DisableLiveCameraFeed within Constants.cs to true, disable the feed:
-            if(GeneralConstants.DisableLiveCameraFeed)
-            {
-                LiveFeedPanel.Visibility = Visibility.Collapsed;
-                DisabledFeedGrid.Visibility = Visibility.Visible;
-            }
-            else
             {
                 LiveFeedPanel.Visibility = Visibility.Visible;
                 DisabledFeedGrid.Visibility = Visibility.Collapsed;
             }
+            matrixPad = new MatrixKeypadMonitor(new List<int> { 16, 20, 21, 5, 6, 13, 19, 26 });
+            if (matrixPad.SetupSuccessful)
+            {
+                InitializKeyPad();
+            }
+            
+            
+
+
         }
+
+        private void InitializKeyPad()
+        {
+
+            matrixPad.FoundADigitEvent += FoundDigit;
+        }
+
+
 
         /// <summary>
         /// Triggered every time the page is navigated to.
         /// </summary>
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
-            if(initializedOxford)
+            if (initializedOxford)
             {
                 UpdateWhitelistedVisitors();
             }
@@ -148,7 +172,7 @@ namespace FacialRecognitionDoor
                     await webcam.StartCameraPreview();
                 }
             }
-            else if(webcam.IsInitialized())
+            else if (webcam.IsInitialized())
             {
                 WebcamFeed.Source = webcam.mediaCapture;
 
@@ -183,7 +207,7 @@ namespace FacialRecognitionDoor
         /// </summary>
         private void WhitelistedUsersGrid_Loaded(object sender, RoutedEventArgs e)
         {
-            visitorIDPhotoGridMaxWidth = (WhitelistedUsersGrid.ActualWidth / 3) - 10;
+            visitorIDPhotoGridMaxWidth = (WhitelistedUsersGrid.ActualWidth/3) - 10;
         }
 
         /// <summary>
@@ -207,6 +231,10 @@ namespace FacialRecognitionDoor
                 }
             }
         }
+
+
+
+
 
         /// <summary>
         /// Triggered when user presses virtual doorbell app bar button
@@ -241,7 +269,7 @@ namespace FacialRecognitionDoor
                 try
                 {
                     // Oxford determines whether or not the visitor is on the Whitelist and returns true if so
-                    recognizedVisitors = await OxfordFaceAPIHelper.IsFaceInWhitelist(imageFile);                    
+                    recognizedVisitors = await OxfordFaceAPIHelper.IsFaceInWhitelist(imageFile);
                 }
                 catch (FaceRecognitionException fe)
                 {
@@ -262,8 +290,8 @@ namespace FacialRecognitionDoor
                     // General error. This can happen if there are no visitors authorized in the whitelist
                     Debug.WriteLine("WARNING: Oxford just threw a general expception.");
                 }
-                
-                if(recognizedVisitors.Count > 0)
+
+                if (recognizedVisitors.Count > 0)
                 {
                     // If everything went well and a visitor was recognized, unlock the door:
                     UnlockDoor(recognizedVisitors[0]);
@@ -283,10 +311,11 @@ namespace FacialRecognitionDoor
                     await speech.Read(SpeechContants.NoCameraMessage);
                 }
 
-                if(!initializedOxford)
+                if (!initializedOxford)
                 {
                     // Oxford is still initializing:
-                    Debug.WriteLine("Unable to analyze visitor at door as Oxford Facial Recogntion is still initializing.");
+                    Debug.WriteLine(
+                        "Unable to analyze visitor at door as Oxford Facial Recogntion is still initializing.");
                 }
             }
 
@@ -302,24 +331,14 @@ namespace FacialRecognitionDoor
             // Greet visitor
             await speech.Read(SpeechContants.GeneralGreetigMessage(visitorName));
 
-            if(gpioAvailable)
+            if (gpioAvailable)
             {
                 // Unlock door for specified ammount of time
                 gpioHelper.UnlockDoor();
             }
         }
 
-        /// <summary>
-        /// Called when user hits vitual add user button. Navigates to NewUserPage page.
-        /// </summary>
-        private async void NewUserButton_Click(object sender, RoutedEventArgs e)
-        { 
-            // Stops camera preview on this page, so that it can be started on NewUserPage
-            await webcam.StopCameraPreview();
 
-            //Navigates to NewUserPage, passing through initialized WebcamHelper object
-            Frame.Navigate(typeof(NewUserPage), webcam);
-        }
 
         /// <summary>
         /// Updates internal list of of whitelisted visitors (whitelistedVisitors) and the visible UI grid
@@ -347,7 +366,10 @@ namespace FacialRecognitionDoor
             // If the whitelistFolder has not been opened, open it
             if (whitelistFolder == null)
             {
-                whitelistFolder = await KnownFolders.PicturesLibrary.CreateFolderAsync(GeneralConstants.WhiteListFolderName, CreationCollisionOption.OpenIfExists);
+                whitelistFolder =
+                    await
+                        KnownFolders.PicturesLibrary.CreateFolderAsync(GeneralConstants.WhiteListFolderName,
+                            CreationCollisionOption.OpenIfExists);
             }
 
             // Populates subFolders list with all sub folders within the whitelist folders.
@@ -393,6 +415,91 @@ namespace FacialRecognitionDoor
             Frame.Navigate(typeof(UserProfilePage), new UserProfileObject(e.ClickedItem as Visitor, webcam));
         }
 
+
+
+        //KepadInitializer
+        private async void FoundDigit(object sender, string digit)
+        {
+            // Do something here with your keypress 
+            Debug.WriteLine(string.Format("{0} was pressed!", digit));
+            //Actions
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
+            {
+                switch (digit)
+                {
+               
+                    case "B":
+                            if (!doorbellJustPressed)
+                            {
+                                doorbellJustPressed = true;
+                                await DoorbellPressed();
+                            }                       
+                            break;
+                    case "C":
+                            await EmailConfirm();                    
+                             break;
+                    case "D":
+                            await RequestKey();
+                             break;
+
+
+                    //SecretCode
+                    case "*":
+                        secretPin[0] = true;
+                        break;
+                    case "5":
+                        if (secretPin[0])
+                        {
+                            secretPin[1] = true;
+                        }
+                        break;
+                    case "4":
+                        if (secretPin[1])
+                        {
+                            //openDoor
+                            UnlockDoor("OverRide");
+                        }
+                        else
+                        {
+                            //reset sequence
+                            secretPin[0] = false;
+                            secretPin[1] = false;
+                        }
+                        break;
+                    default:
+                        secretPin[0] = false;
+                        secretPin[1] = false;
+                        break;
+
+
+                }
+
+            });
+
+        }
+
+
+     
+
+        /// <summary>
+        /// Called when user hits vitual add user button. Navigates to NewUserPage page.
+        /// </summary>
+        private async void NewUserButton_Click(object sender, RoutedEventArgs e)
+        {
+            await AddNewUser();
+        }
+
+
+        private async Task AddNewUser()
+        {
+            // Stops camera preview on this page, so that it can be started on NewUserPage
+            await webcam.StopCameraPreview();
+
+            //Navigates to NewUserPage, passing through initialized WebcamHelper object
+            Frame.Navigate(typeof(NewUserPage), webcam);
+        }
+
+
         /// <summary>
         /// Triggered when the user selects the Shutdown button in the app bar. Closes app.
         /// </summary>
@@ -402,14 +509,20 @@ namespace FacialRecognitionDoor
             Application.Current.Exit();
         }
 
-   
+
 
         private async void EmailConfirmation_Click_1(object sender, RoutedEventArgs e)
+        {
+            await EmailConfirm();
+        }
+
+
+        private async Task EmailConfirm()
         {
             bool emailConfirmed = await MailHelper.ReadMail();
             if (!emailConfirmed)
             {
-                speech.Read("Sorry I got no Confirmation yet");
+                await speech.Read("Sorry I got no Confirmation yet");
                 MessageDialog dialogue = new MessageDialog("Sorry I got no Confirmation yet");
                 await dialogue.ShowAsync();
 
@@ -420,22 +533,33 @@ namespace FacialRecognitionDoor
             }
         }
 
+
+
+
+
         private async void RequestToken_Click(object sender, RoutedEventArgs e)
+        {
+            await RequestKey();
+        }
+
+        private async Task RequestKey()
         {
             imageFile = await webcam.CapturePhoto();
 
-            if (MailHelper.SendMail(imageFile))
+            if (await MailHelper.SendMail(imageFile))
             {
-                speech.Read("Wait While I contact my master");
+                await speech.Read("Wait While I contact my master");
                 MessageDialog dialogue = new MessageDialog("Wait While I contact my master");
                 await dialogue.ShowAsync();
             }
             else
             {
-                speech.Read("Email Sending Failed Check Internet Connection");
+                await speech.Read("Email Sending Failed Check Internet Connection");
                 MessageDialog dialogue = new MessageDialog("Email Sending Failed Check Internet Connection");
                 await dialogue.ShowAsync();
             }
         }
+
+
     }
 }

@@ -39,12 +39,12 @@
     public static class GpioConstants
     {
         // The GPIO pin that the doorbell button is attached to
-        public const int ButtonPinID = 5;
+        public const int ButtonPinID = 17;
 
         // The GPIO pin that the door lock is attached to
-        public const int DoorLockPinID = 4;
+        public const int DoorLockPinID = 18;
 
         // The amount of time in seconds that the door will remain unlocked for
-        public const int DoorLockOpenDurationSeconds = 10;
+        public const int DoorLockOpenDurationSeconds = 4;
     }
 }
